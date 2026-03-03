@@ -109,10 +109,31 @@ def predict():
         team2_form = get_latest_form(team2, latest_form)
 
         # Head to Head
+        # Head to Head
         h2h = df[
-            ((df["team1"] == team1) & (df["team2"] == team2)) |
-            ((df["team1"] == team2) & (df["team2"] == team1))
-        ]
+                ((df["team1"] == team1) & (df["team2"] == team2)) |
+                ((df["team1"] == team2) & (df["team2"] == team1))
+            ]
+
+        team1_h2h_wins = (h2h["winner"] == team1).sum()
+        total_h2h = len(h2h)
+
+        if total_h2h > 0:
+            team1_h2h_ratio = team1_h2h_wins / total_h2h
+        else:
+            team1_h2h_ratio = 0.5
+
+
+            # Recent win percentage (last 10 matches)
+        recent_matches = df[
+                (df["team1"] == team1) | (df["team2"] == team1)
+            ].tail(10)
+
+        if len(recent_matches) > 0:
+                recent_wins = (recent_matches["winner"] == team1).sum()
+                recent_win_pct = recent_wins / len(recent_matches)
+        else:
+                recent_win_pct = 0.5
 
         team1_h2h_wins = (h2h["winner"] == team1).sum()
         team2_h2h_wins = (h2h["winner"] == team2).sum()
@@ -142,7 +163,9 @@ def predict():
             "format_enc": f,
             "home_adv": home_adv,
             "team1_form": team1_form,
-            "team2_form": team2_form
+            "team2_form": team2_form,
+            "h2h_ratio": team1_h2h_ratio,
+            "recent_win_pct": recent_win_pct
         }])
 
         # Safe probability extraction

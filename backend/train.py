@@ -248,50 +248,91 @@ def add_recent_form(df):
 
 def train_model(df):
 
-    # Add home advantage
-    df["home_adv"] = df.apply(home_advantage, axis=1)
+    # Encode categorical columns
+    from sklearn.preprocessing import LabelEncoder
+    from sklearn.model_selection import train_test_split
+    from sklearn.ensemble import RandomForestClassifier
+    import joblib
 
-    # Encode
     team_encoder = LabelEncoder()
-    team_encoder.fit(pd.concat([df["team1"], df["team2"]]))
-
-    df["team1_enc"] = team_encoder.transform(df["team1"])
-    df["team2_enc"] = team_encoder.transform(df["team2"])
-
     city_encoder = LabelEncoder()
-    df["city_enc"] = city_encoder.fit_transform(df["city"])
-
     format_encoder = LabelEncoder()
+
+    df["team1_enc"] = team_encoder.fit_transform(df["team1"])
+    df["team2_enc"] = team_encoder.transform(df["team2"])
+    df["city_enc"] = city_encoder.fit_transform(df["city"])
     df["format_enc"] = format_encoder.fit_transform(df["format"])
 
-    # FEATURES (home_adv added back)
-    X = df[[
+    # --------------------------
+    # NEW FEATURES
+    # --------------------------
+
+    # Head-to-head ratio
+    df["h2h_ratio"] = df.apply(
+        lambda row: (
+            (
+                (
+                    df[
+                        ((df["team1"] == row["team1"]) & (df["team2"] == row["team2"])) |
+                        ((df["team1"] == row["team2"]) & (df["team2"] == row["team1"]))
+                    ]["winner"] == row["team1"]
+                ).sum()
+            ) /
+            max(
+                1,
+                len(
+                    df[
+                        ((df["team1"] == row["team1"]) & (df["team2"] == row["team2"])) |
+                        ((df["team1"] == row["team2"]) & (df["team2"] == row["team1"]))
+                    ]
+                )
+            )
+        ),
+        axis=1
+    )
+
+    # Recent win percentage (last 10)
+    def recent_win_pct(team, date):
+        past = df[
+            ((df["team1"] == team) | (df["team2"] == team)) &
+            (df["date"] < date)
+        ].tail(10)
+
+        if len(past) == 0:
+            return 0.5
+
+        wins = (past["winner"] == team).sum()
+        return wins / len(past)
+
+    df["recent_win_pct"] = df.apply(
+        lambda row: recent_win_pct(row["team1"], row["date"]),
+        axis=1
+    )
+
+    # --------------------------
+    # Final Features
+    # --------------------------
+
+    features = [
         "team1_enc",
         "team2_enc",
         "city_enc",
         "format_enc",
         "home_adv",
         "team1_form",
-        "team2_form"
-    ]]
+        "team2_form",
+        "h2h_ratio",
+        "recent_win_pct"
+    ]
 
+    X = df[features]
     y = df["team1_win"]
 
-    split_index = int(len(df) * 0.8)
-
-    X_train = X.iloc[:split_index]
-    X_test = X.iloc[split_index:]
-    y_train = y.iloc[:split_index]
-    y_test = y.iloc[split_index:]
-
-    model = RandomForestClassifier(
-        n_estimators=800,
-        max_depth=20,
-        min_samples_split=5,
-        min_samples_leaf=2,
-        random_state=42
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
     )
 
+    model = RandomForestClassifier(n_estimators=200)
     model.fit(X_train, y_train)
 
     accuracy = model.score(X_test, y_test)
@@ -303,11 +344,9 @@ def train_model(df):
     joblib.dump(team_encoder, "models/team_encoder.pkl")
     joblib.dump(city_encoder, "models/city_encoder.pkl")
     joblib.dump(format_encoder, "models/format_encoder.pkl")
-
     df.to_pickle("models/full_dataset.pkl")
 
     print("Model and encoders saved in /models")
-
 # -----------------------------
 # MAIN
 # -----------------------------
