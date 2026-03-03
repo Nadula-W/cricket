@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
 # -----------------------------
 # COUNTRY MAPPINGS
@@ -115,6 +116,7 @@ city_country = {
     "Sharjah": "UAE"
 }
 
+
 # -----------------------------
 # DOWNLOAD DATA
 # -----------------------------
@@ -194,23 +196,17 @@ def build_dataset():
 # -----------------------------
 
 def home_advantage(row):
-    city = row["city"]
-    team1 = row["team1"]
-    team2 = row["team2"]
-
-    city_cty = city_country.get(city)
-    team1_cty = team_country.get(team1)
-    team2_cty = team_country.get(team2)
+    city_cty = city_country.get(row["city"])
+    team1_cty = team_country.get(row["team1"])
+    team2_cty = team_country.get(row["team2"])
 
     if city_cty is None:
         return 0
-
     if city_cty == team1_cty:
         return 1
     elif city_cty == team2_cty:
         return -1
-    else:
-        return 0
+    return 0
 
 # -----------------------------
 # RECENT FORM
@@ -248,38 +244,27 @@ def add_recent_form(df):
 
 def train_model(df):
 
-  # --------------------------
-# Encode categorical columns
-# --------------------------
-
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.model_selection import train_test_split
-    from sklearn.ensemble import RandomForestClassifier
-    import joblib
-
-    team_encoder = LabelEncoder()
-    city_encoder = LabelEncoder()
-    format_encoder = LabelEncoder()
-
-    # 🔥 Clean string values (important!)
+    # Clean strings
     df["team1"] = df["team1"].astype(str).str.strip()
     df["team2"] = df["team2"].astype(str).str.strip()
     df["city"] = df["city"].astype(str).str.strip()
     df["format"] = df["format"].astype(str).str.strip()
 
-    # 🔥 FIT ON BOTH TEAM COLUMNS
+    # Encoders
+    team_encoder = LabelEncoder()
+    city_encoder = LabelEncoder()
+    format_encoder = LabelEncoder()
+
     all_teams = pd.concat([df["team1"], df["team2"]]).unique()
     team_encoder.fit(all_teams)
 
     df["team1_enc"] = team_encoder.transform(df["team1"])
     df["team2_enc"] = team_encoder.transform(df["team2"])
-
-    # 🔥 Fit city and format normally
     df["city_enc"] = city_encoder.fit_transform(df["city"])
     df["format_enc"] = format_encoder.fit_transform(df["format"])
-    # --------------------------
-    # NEW FEATURES
-    # --------------------------
+
+    # 🔥 Create home_adv here properly
+    df["home_adv"] = df.apply(home_advantage, axis=1)
 
     # Head-to-head ratio
     df["h2h_ratio"] = df.apply(
@@ -305,7 +290,7 @@ def train_model(df):
         axis=1
     )
 
-    # Recent win percentage (last 10)
+    # Recent win pct
     def recent_win_pct(team, date):
         past = df[
             ((df["team1"] == team) | (df["team2"] == team)) &
@@ -322,10 +307,6 @@ def train_model(df):
         lambda row: recent_win_pct(row["team1"], row["date"]),
         axis=1
     )
-
-    # --------------------------
-    # Final Features
-    # --------------------------
 
     features = [
         "team1_enc",
@@ -349,11 +330,9 @@ def train_model(df):
     model = RandomForestClassifier(n_estimators=200)
     model.fit(X_train, y_train)
 
-    accuracy = model.score(X_test, y_test)
-    print("Model Accuracy:", accuracy)
+    print("Model Accuracy:", model.score(X_test, y_test))
 
     os.makedirs("models", exist_ok=True)
-
     joblib.dump(model, "models/model.pkl")
     joblib.dump(team_encoder, "models/team_encoder.pkl")
     joblib.dump(city_encoder, "models/city_encoder.pkl")
@@ -361,6 +340,7 @@ def train_model(df):
     df.to_pickle("models/full_dataset.pkl")
 
     print("Model and encoders saved in /models")
+
 # -----------------------------
 # MAIN
 # -----------------------------
