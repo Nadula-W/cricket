@@ -1,0 +1,16 @@
+# Ignore model files
+backend/models/
+*.pkl
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node modules
+frontend/node_modules/
+
+# Build files
+frontend/build/
+
+# Environment files
+.env
