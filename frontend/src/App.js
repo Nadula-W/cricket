@@ -7,11 +7,9 @@ ChartJS.register(CategoryScale, LinearScale, BarElement);
 
 const API =
   process.env.REACT_APP_API_URL ||
-  (window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://cricket-0f5q.onrender.com");
-
-const teamFlags = {
+  "https://cricket-0f5q.onrender.com";
+  
+  const teamFlags = {
   India: "in",
   Australia: "au",
   England: "gb",
@@ -49,7 +47,6 @@ function App() {
         setTeams(res.data.teams || []);
         setCities(res.data.cities || []);
         setFormats(res.data.formats || []);
-
         if (res.data.teams?.length > 1) {
           setTeam1(res.data.teams[0]);
           setTeam2(res.data.teams[1]);
