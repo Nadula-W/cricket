@@ -248,7 +248,10 @@ def add_recent_form(df):
 
 def train_model(df):
 
-    # Encode categorical columns
+  # --------------------------
+# Encode categorical columns
+# --------------------------
+
     from sklearn.preprocessing import LabelEncoder
     from sklearn.model_selection import train_test_split
     from sklearn.ensemble import RandomForestClassifier
@@ -258,11 +261,22 @@ def train_model(df):
     city_encoder = LabelEncoder()
     format_encoder = LabelEncoder()
 
-    df["team1_enc"] = team_encoder.fit_transform(df["team1"])
+    # 🔥 Clean string values (important!)
+    df["team1"] = df["team1"].astype(str).str.strip()
+    df["team2"] = df["team2"].astype(str).str.strip()
+    df["city"] = df["city"].astype(str).str.strip()
+    df["format"] = df["format"].astype(str).str.strip()
+
+    # 🔥 FIT ON BOTH TEAM COLUMNS
+    all_teams = pd.concat([df["team1"], df["team2"]]).unique()
+    team_encoder.fit(all_teams)
+
+    df["team1_enc"] = team_encoder.transform(df["team1"])
     df["team2_enc"] = team_encoder.transform(df["team2"])
+
+    # 🔥 Fit city and format normally
     df["city_enc"] = city_encoder.fit_transform(df["city"])
     df["format_enc"] = format_encoder.fit_transform(df["format"])
-
     # --------------------------
     # NEW FEATURES
     # --------------------------
