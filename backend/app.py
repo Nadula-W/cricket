@@ -72,64 +72,52 @@ def get_options():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    try:
+        data = request.json
 
-    data = request.json
+        team1 = data["team1"]
+        team2 = data["team2"]
+        city = data["city"]
+        match_format = data["format"]
 
-    team1 = data["team1"]
-    team2 = data["team2"]
-    city = data["city"]
-    match_format = data["format"]
+        print("Received:", team1, team2, city, match_format)
 
-    team1_form = get_latest_form(team1, latest_form)
-    team2_form = get_latest_form(team2, latest_form)
+        t1 = team_encoder.transform([team1])[0]
+        t2 = team_encoder.transform([team2])[0]
+        c = city_encoder.transform([city])[0]
+        f = format_encoder.transform([match_format])[0]
 
-    h2h = df[
-        ((df["team1"] == team1) & (df["team2"] == team2)) |
-        ((df["team1"] == team2) & (df["team2"] == team1))
-    ]
+        team1_form = get_latest_form(team1, latest_form)
+        team2_form = get_latest_form(team2, latest_form)
 
-    team1_h2h_wins = (h2h["winner"] == team1).sum()
-    team2_h2h_wins = (h2h["winner"] == team2).sum()
+        home_adv = calculate_home_adv(
+            team1, team2, city,
+            team_country, city_country
+        )
 
-    home_adv = calculate_home_adv(
-        team1, team2, city,
-        team_country, city_country
-    )
+        X_input = pd.DataFrame([{
+            "team1_enc": t1,
+            "team2_enc": t2,
+            "city_enc": c,
+            "format_enc": f,
+            "home_adv": home_adv,
+            "team1_form": team1_form,
+            "team2_form": team2_form
+        }])
 
-    last5_team1 = list(latest_form.get(team1, []))
-    last5_team2 = list(latest_form.get(team2, []))
+        probs = model.predict_proba(X_input)[0]
 
-    t1 = team_encoder.transform([team1])[0]
-    t2 = team_encoder.transform([team2])[0]
-    c = city_encoder.transform([city])[0]
-    f = format_encoder.transform([match_format])[0]
+        prob = probs[1] if len(probs) > 1 else probs[0]
 
-    X_input = pd.DataFrame([{
-        "team1_enc": t1,
-        "team2_enc": t2,
-        "city_enc": c,
-        "format_enc": f,
-        "home_adv": home_adv,
-        "team1_form": team1_form,
-        "team2_form": team2_form
-    }])
+        return jsonify({
+            "team1": team1,
+            "team2": team2,
+            "probability": round(prob * 100, 2)
+        })
 
-    prob = model.predict_proba(X_input)[0][1]
-
-    return jsonify({
-        "team1": team1,
-        "team2": team2,
-        "probability": round(prob * 100, 2),
-        "team1_form": round(team1_form, 2),
-        "team2_form": round(team2_form, 2),
-        "home_adv": home_adv,
-        "last5_team1": last5_team1,
-        "last5_team2": last5_team2,
-        "head_to_head": {
-            "team1_wins": int(team1_h2h_wins),
-            "team2_wins": int(team2_h2h_wins)
-        }
-    })
+    except Exception as e:
+        print("Prediction Error:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
