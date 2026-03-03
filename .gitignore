@@ -1,16 +1,21 @@
-# Ignore model files
-backend/models/
-*.pkl
-
-# Python cache
+# Python
 __pycache__/
 *.pyc
+*.pyo
 
-# Node modules
+# Model files
+backend/models/
+backend/data/
+
+# Dataset downloads
+data/
+
+# Frontend
 frontend/node_modules/
-
-# Build files
 frontend/build/
 
-# Environment files
+# Environment
 .env
+
+# OS
+.DS_Store

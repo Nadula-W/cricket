@@ -2,17 +2,29 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import pandas as pd
+import os
+from train import download_data, build_dataset, add_recent_form, train_model
 
 from features import build_latest_form, get_latest_form, calculate_home_adv
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 # Load model and encoders
+os.makedirs("models", exist_ok=True)
+
+if not os.path.exists("models/model.pkl"):
+    print("Model not found. Training model...")
+    download_data()
+    df = build_dataset()
+    df = add_recent_form(df)
+    train_model(df)
+else:
+    print("Model found. Loading model...")
+
 model = joblib.load("models/model.pkl")
 team_encoder = joblib.load("models/team_encoder.pkl")
 city_encoder = joblib.load("models/city_encoder.pkl")
 format_encoder = joblib.load("models/format_encoder.pkl")
-
 # Load dataset for form calculation
 df = pd.read_pickle("models/full_dataset.pkl")
 latest_form = build_latest_form(df)
